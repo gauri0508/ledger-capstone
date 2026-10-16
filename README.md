@@ -5,6 +5,7 @@
 **Session:** 21 — Final DevOps Project & Troubleshooting
 **Repository:** https://github.com/gauri0508/ledger-capstone
 **Pipeline run:** https://github.com/gauri0508/ledger-capstone/actions/runs/38895206289
+**Presentation:** [`ledger-capstone-presentation.pptx`](ledger-capstone-presentation.pptx) (18 slides, speaker notes included)
 
 Ledger is a small personal expense tracker: you add what you spent (amount, category, date, note),
 filter by category, and the dashboard shows this month's total, the all-time total and the top
@@ -51,7 +52,8 @@ ledger-capstone/
 ├── monitoring/              kube-prometheus-stack values + Grafana dashboard (JSON + ConfigMap)
 ├── troubleshooting/         deliberately broken manifests used in the lab below
 ├── scripts/                 load-test.sh for the HPA demo
-└── docs/screenshots/        every screenshot referenced in this README
+├── docs/screenshots/        every screenshot referenced in this README
+└── ledger-capstone-presentation.pptx   the final presentation deck
 ```
 
 ## Two things to know before reading the evidence
