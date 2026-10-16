@@ -324,8 +324,8 @@ Fresh data was entered through the Ingress with curl, and the page below was loa
 
 `kubectl get hpa` at idle, then four busybox pods hammering `/api/expenses/summary`
 (`scripts/load-test.sh` does the same from outside). CPU went from 3 % to 278 % of the request and the
-HPA scaled the backend from 2 to 5 replicas (its maximum) within a minute; after the load was removed it
-waited out the 5-minute stabilisation window and scaled back down:
+HPA scaled the backend from 2 to 5 replicas (its maximum) within a minute; a few minutes after the load
+was removed (CPU back at 2 %, stabilisation window elapsed) it scaled back down to 2:
 
 ![HPA scaling](docs/screenshots/hpa-scale-up-down-terminal.png)
 
@@ -386,9 +386,15 @@ set to `null` explicitly — my first attempt that forgot this still had `<none>
 
 # 11. Final demo — a change travels from commit to cluster
 
-![demo](docs/screenshots/demo-change-commit-pipeline-rollout-terminal.png)
+The closing demonstration: a small application change (new tagline on the dashboard, app version
+1.1.0), committed and pushed. The pipeline runs all three jobs, the images get the new commit's SHA as
+their tag, Helm rolls the release to revision 2 with zero downtime (`maxUnavailable: 0`), and the
+change is visible through the Ingress. In the cluster the API reports the commit SHA as its version,
+because the chart sets `APP_VERSION` to the image tag — one more way to see exactly what is running.
 
-![demo UI](docs/screenshots/demo-ui-after-rollout-browser.png)
+![commit → pipeline → rollout](docs/screenshots/demo-change-commit-pipeline-rollout-terminal.png)
+
+![UI after the rollout](docs/screenshots/demo-ui-after-rollout-browser.png)
 
 ---
 
