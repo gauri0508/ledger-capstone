@@ -1,0 +1,7 @@
+# Local execution of the GitHub Actions workflow with nektos/act (same YAML, Docker runner).
+-P ubuntu-latest=catthehacker/ubuntu:act-latest
+--container-daemon-socket unix:///var/run/docker.sock
+--network minikube
+--artifact-server-path /tmp/act-artifacts
+--var REGISTRY=localhost:5000
+--var IMAGE_NAMESPACE=ledger

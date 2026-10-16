@@ -1,0 +1,173 @@
+name: Ledger CI/CD
+# TEST  ->  BUILD + SCAN + PUSH  ->  DEPLOY
+# Every push to main: pytest + frontend build, two Docker images tagged with the commit SHA,
+# Trivy gate on both images, push to GHCR, then helm upgrade --install on the cluster.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  # On GitHub these resolve to ghcr.io/<owner>. For a local run with `act` the same file is used
+  # with  --var REGISTRY=localhost:5000 --var IMAGE_NAMESPACE=ledger  (Minikube's registry addon).
+  REGISTRY: ${{ vars.REGISTRY || 'ghcr.io' }}
+  IMAGE_NAMESPACE: ${{ vars.IMAGE_NAMESPACE || github.repository_owner }}
+  BACKEND_IMAGE: ledger-backend
+  FRONTEND_IMAGE: ledger-frontend
+  HELM_RELEASE: ledger
+  HELM_NAMESPACE: ledger
+
+jobs:
+  # ---------------------------------------------------------------- 1. TEST
+  test:
+    name: Test (pytest + lint + frontend build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install backend dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt ruff
+      - name: Lint (ruff)
+        working-directory: backend
+        run: ruff check app tests
+      - name: Unit tests (pytest, throw-away SQLite DB from tests/conftest.py)
+        working-directory: backend
+        run: pytest -v --junitxml=../pytest-report.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pytest-report
+          path: pytest-report.xml
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+  # ---------------------------------------------------------------- 2. BUILD + SCAN + PUSH
+  build-scan-push:
+    name: Build images, Trivy scan, push to registry
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Image names (tag = commit SHA, never only "latest")
+        id: img
+        run: |
+          echo "backend=${REGISTRY}/${IMAGE_NAMESPACE}/${BACKEND_IMAGE}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "frontend=${REGISTRY}/${IMAGE_NAMESPACE}/${FRONTEND_IMAGE}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        if: env.REGISTRY == 'ghcr.io'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build backend image
+        run: docker build -t "${{ steps.img.outputs.backend }}" ./backend
+      - name: Build frontend image
+        run: docker build -t "${{ steps.img.outputs.frontend }}" ./frontend
+      - name: Show the images
+        run: docker image ls --format 'table {{.Repository}}\t{{.Tag}}\t{{.Size}}' | grep -E "REPOSITORY|ledger-"
+
+      # Security gate: any HIGH/CRITICAL CVE that already has a fix fails the job,
+      # so a vulnerable image is never pushed or deployed.
+      - name: Trivy scan - backend image
+        uses: aquasecurity/trivy-action@0.30.0
+        with:
+          image-ref: ${{ steps.img.outputs.backend }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+      - name: Trivy scan - frontend image
+        uses: aquasecurity/trivy-action@0.30.0
+        with:
+          image-ref: ${{ steps.img.outputs.frontend }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+          skip-setup-trivy: true
+
+      - name: Push images
+        run: |
+          docker push "${{ steps.img.outputs.backend }}"
+          docker push "${{ steps.img.outputs.frontend }}"
+
+  # ---------------------------------------------------------------- 3. DEPLOY
+  deploy:
+    name: Deploy with Helm
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build-scan-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: v1.31.0
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Configure kubectl from the KUBE_CONFIG_DATA secret
+        env:
+          KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+        run: |
+          mkdir -p ~/.kube
+          echo "$KUBE_CONFIG_DATA" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+          kubectl get nodes
+
+      - name: Namespace
+        run: kubectl apply -f k8s/namespace.yaml
+
+      - name: helm upgrade --install (image tag = this commit)
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        run: |
+          helm upgrade --install "$HELM_RELEASE" ./helm/ledger \
+            --namespace "$HELM_NAMESPACE" \
+            -f helm/ledger/values-dev.yaml \
+            --set-string image.registry="${REGISTRY}/${IMAGE_NAMESPACE}" \
+            --set-string backend.image.tag="${GITHUB_SHA}" \
+            --set-string frontend.image.tag="${GITHUB_SHA}" \
+            --set-string postgres.auth.password="${POSTGRES_PASSWORD}" \
+            --wait --timeout 8m
+          helm list -n "$HELM_NAMESPACE"
+          kubectl get pods -n "$HELM_NAMESPACE" -o wide
+
+      - name: Smoke test through the Services
+        run: |
+          FE=$(kubectl -n "$HELM_NAMESPACE" get pod -l app.kubernetes.io/component=frontend -o jsonpath='{.items[0].metadata.name}')
+          kubectl -n "$HELM_NAMESPACE" exec "$FE" -- sh -c '
+            wget -qO- http://backend:8000/ready; echo;
+            wget -qO- http://backend:8000/api/expenses/summary; echo;
+            wget -qSO- http://frontend:8080/ 2>&1 | grep -m1 "HTTP/"'
