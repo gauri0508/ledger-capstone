@@ -2,7 +2,7 @@
 # real AWS keys come from `aws configure` / environment variables, and
 # LocalStack uses the hard-coded dummy pair in provider.tf.
 
-# true  = LocalStack on http://localhost:4566 (VPC/IAM only; EKS and ECR fail there)
+# true  = LocalStack on http://localhost:4566 (VPC and IAM only; EKS is not emulated there)
 # false = real AWS, using your normal credential chain
 use_localstack = true
 
@@ -21,8 +21,6 @@ node_instance_types = ["t3.medium"]
 node_desired_size   = 2
 node_min_size       = 1
 node_max_size       = 3
-
-ecr_repositories = ["ledger-backend", "ledger-frontend"]
 
 tags = {
   Owner = "gauri"
