@@ -56,3 +56,5 @@ kind: ConfigMap
 metadata:
   name: ledger-grafana-dashboard
   namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
