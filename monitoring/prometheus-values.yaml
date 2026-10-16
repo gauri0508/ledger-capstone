@@ -1,0 +1,23 @@
+# kube-prometheus-stack values trimmed for a 1-node Minikube
+grafana:
+  adminPassword: admin123
+  service: {type: ClusterIP}
+  resources: {requests: {cpu: 50m, memory: 128Mi}}
+prometheus:
+  prometheusSpec:
+    retention: 2h
+    resources: {requests: {cpu: 100m, memory: 400Mi}}
+    # pick up ServiceMonitors from any namespace, not only those with the release label
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+alertmanager:
+  alertmanagerSpec:
+    resources: {requests: {cpu: 20m, memory: 64Mi}}
+kubeStateMetrics: {enabled: true}
+nodeExporter: {enabled: true}
+# control-plane scrape targets that don't exist on Minikube (static pods bind to localhost / no service)
+kubeControllerManager: {enabled: false}
+kubeScheduler: {enabled: false}
+kubeEtcd: {enabled: false}
+kubeProxy: {enabled: false}

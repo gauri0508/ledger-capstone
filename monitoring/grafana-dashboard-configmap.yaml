@@ -1,0 +1,58 @@
+# Grafana (kube-prometheus-stack) runs a sidecar that loads any ConfigMap labelled grafana_dashboard=1
+# from any namespace. Apply once:  kubectl apply -f monitoring/grafana-dashboard-configmap.yaml
+apiVersion: v1
+data:
+  ledger.json: |
+    {
+      "title": "Ledger - application overview",
+      "uid": "ledger-overview",
+      "tags": ["ledger", "final-project"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "refresh": "10s",
+      "time": {"from": "now-30m", "to": "now"},
+      "panels": [
+        {
+          "id": 1, "type": "timeseries", "title": "Backend requests/s by status",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [{"refId": "A", "expr": "sum(rate(http_requests_total{namespace=\"ledger\"}[1m])) by (status)", "legendFormat": "{{status}}"}]
+        },
+        {
+          "id": 2, "type": "timeseries", "title": "Backend p95 latency (s)",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [{"refId": "A", "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{namespace=\"ledger\"}[2m])) by (le, handler))", "legendFormat": "{{handler}}"}]
+        },
+        {
+          "id": 3, "type": "stat", "title": "5xx ratio (2m)",
+          "gridPos": {"h": 6, "w": 6, "x": 0, "y": 8},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "percentunit", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 0.05}]}}},
+          "targets": [{"refId": "A", "expr": "sum(rate(http_requests_total{namespace=\"ledger\",status=~\"5..\"}[2m])) / sum(rate(http_requests_total{namespace=\"ledger\"}[2m]))"}]
+        },
+        {
+          "id": 4, "type": "stat", "title": "Backend replicas available",
+          "gridPos": {"h": 6, "w": 6, "x": 6, "y": 8},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [{"refId": "A", "expr": "sum(kube_deployment_status_replicas_available{namespace=\"ledger\", deployment=~\".*backend.*\"})"}]
+        },
+        {
+          "id": 5, "type": "timeseries", "title": "CPU (cores) per pod - ledger namespace",
+          "gridPos": {"h": 6, "w": 6, "x": 12, "y": 8},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [{"refId": "A", "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"ledger\", container!=\"\"}[2m])) by (pod)", "legendFormat": "{{pod}}"}]
+        },
+        {
+          "id": 6, "type": "timeseries", "title": "Memory (working set) per pod - ledger namespace",
+          "gridPos": {"h": 6, "w": 6, "x": 18, "y": 8},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "bytes"}},
+          "targets": [{"refId": "A", "expr": "sum(container_memory_working_set_bytes{namespace=\"ledger\", container!=\"\"}) by (pod)", "legendFormat": "{{pod}}"}]
+        }
+      ]
+    }
+kind: ConfigMap
+metadata:
+  name: ledger-grafana-dashboard
+  namespace: monitoring
