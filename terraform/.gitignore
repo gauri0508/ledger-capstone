@@ -1,0 +1,14 @@
+# provider binaries (re-created by `terraform init`)
+.terraform/
+
+# state contains resource IDs, the cluster CA and ARNs -- never commit it
+*.tfstate
+*.tfstate.*
+
+# saved plans and crash logs
+tfplan
+*.tfplan
+crash.log
+
+# the real tfvars may hold account-specific values; the .example is committed instead
+terraform.tfvars

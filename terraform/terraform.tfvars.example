@@ -1,0 +1,29 @@
+# Copy to terraform.tfvars and edit. No credentials belong in this file:
+# real AWS keys come from `aws configure` / environment variables, and
+# LocalStack uses the hard-coded dummy pair in provider.tf.
+
+# true  = LocalStack on http://localhost:4566 (VPC/IAM only; EKS and ECR fail there)
+# false = real AWS, using your normal credential chain
+use_localstack = true
+
+aws_region   = "ap-south-1"
+project_name = "ledger"
+environment  = "dev"
+
+vpc_cidr             = "10.0.0.0/16"
+azs                  = ["ap-south-1a", "ap-south-1b"]
+public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
+private_subnet_cidrs = ["10.0.11.0/24", "10.0.12.0/24"]
+
+cluster_name        = "ledger-dev"
+cluster_version     = "1.31"
+node_instance_types = ["t3.medium"]
+node_desired_size   = 2
+node_min_size       = 1
+node_max_size       = 3
+
+ecr_repositories = ["ledger-backend", "ledger-frontend"]
+
+tags = {
+  Owner = "gauri"
+}
