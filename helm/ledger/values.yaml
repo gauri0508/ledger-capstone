@@ -1,0 +1,149 @@
+# Default values for the ledger chart.
+# values-dev.yaml / values-prod.yaml override the environment-specific bits;
+# CI overrides backend.image.tag / frontend.image.tag with the git SHA.
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  # Prefix for both app images: <registry>/<repository>:<tag>. CI pushes to
+  # GHCR; values-dev.yaml points Minikube at its local registry addon instead.
+  registry: ghcr.io/gauri0508
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+# Non-sensitive config that ends up in the ConfigMap (envFrom on the backend).
+config:
+  appName: ledger
+  logLevel: INFO
+  # Comma-separated list; "*" lets any origin call the API (fine behind the
+  # same-origin nginx proxy, tighten in prod).
+  corsOrigins: "*"
+
+# Sensitive config. Rendered into a Secret with stringData so it is base64 by
+# the API server, not by me. A real deployment would NOT keep these in values:
+# see README (ExternalSecrets / SealedSecrets).
+postgres:
+  auth:
+    username: ledger
+    password: ledger
+    database: ledger
+  image:
+    repository: postgres
+    tag: 16-alpine
+  service:
+    # The DATABASE_URL host; headless so the pod gets a stable DNS name.
+    name: postgres
+    port: 5432
+  persistence:
+    size: 1Gi
+    storageClassName: ""   # "" -> cluster default (minikube: standard)
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  # postgres:16-alpine ships uid/gid 70 for the postgres user.
+  securityContext:
+    runAsUser: 70
+    runAsGroup: 70
+    fsGroup: 70
+
+backend:
+  replicaCount: 2
+  image:
+    repository: ledger-backend
+    tag: ""              # "" -> .Chart.appVersion; CI sets this to the git SHA
+  service:
+    # The frontend's nginx.conf proxies to http://backend:8000, so this name is
+    # not negotiable (same as in docker-compose).
+    name: backend
+    port: 8000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  probes:
+    liveness:
+      path: /health
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    readiness:
+      path: /ready
+      initialDelaySeconds: 3
+      periodSeconds: 5
+    startup:
+      path: /health
+      periodSeconds: 2
+      failureThreshold: 30   # 60s for alembic upgrade head + uvicorn boot
+  # Wait for Postgres before the entrypoint runs the migration, otherwise the
+  # first pods just crash-loop until the StatefulSet is up.
+  waitForPostgres: true
+  migrations:
+    # true: `alembic upgrade head` runs in an init container with a retry loop
+    # and the app container starts uvicorn directly. false: the image's
+    # entrypoint.sh migrates then serves (fine for 1 replica, racy for 2+).
+    initContainer: true
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 60
+  # uid 10001 is what the backend Dockerfile creates.
+  securityContext:
+    runAsUser: 10001
+    runAsGroup: 10001
+
+frontend:
+  replicaCount: 2
+  image:
+    repository: ledger-frontend
+    tag: ""
+  service:
+    name: frontend
+    port: 8080
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  # nginx-unprivileged runs as uid 101.
+  securityContext:
+    runAsUser: 101
+    runAsGroup: 101
+
+ingress:
+  enabled: true
+  className: nginx
+  host: ledger.local
+  annotations: {}
+  tls: []
+  #  - secretName: ledger-tls
+  #    hosts: [ledger.example.com]
+
+monitoring:
+  # Needs the Prometheus Operator CRDs (kube-prometheus-stack).
+  enabled: true
+  serviceMonitor:
+    interval: 15s
+    scrapeTimeout: 10s
+    # Extra labels, e.g. release: monitoring when the Prometheus only picks up
+    # ServiceMonitors matching its helm release label.
+    additionalLabels: {}
+
+# Applied to every pod: the "restricted" Pod Security Standard.
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]

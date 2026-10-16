@@ -1,0 +1,29 @@
+{{ .Chart.Name }} {{ .Chart.Version }} installed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+Images:
+  backend  {{ include "ledger.image" (dict "root" . "image" .Values.backend.image) }}
+  frontend {{ include "ledger.image" (dict "root" . "image" .Values.frontend.image) }}
+  postgres {{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}
+
+Watch it come up:
+  kubectl -n {{ .Release.Namespace }} get pods -w
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "ledger.backend.fullname" . }}
+
+{{- if .Values.ingress.enabled }}
+
+Reach it through the ingress (host {{ .Values.ingress.host }}):
+  curl -H "Host: {{ .Values.ingress.host }}" http://<ingress-ip>/ready
+  curl -H "Host: {{ .Values.ingress.host }}" http://<ingress-ip>/api/expenses/summary
+On minikube add "$(minikube ip) {{ .Values.ingress.host }}" to /etc/hosts and open http://{{ .Values.ingress.host }}/
+{{- else }}
+
+Ingress is disabled; port-forward instead:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ .Values.frontend.service.name }} 8080:{{ .Values.frontend.service.port }}
+{{- end }}
+
+Scaling:  kubectl -n {{ .Release.Namespace }} get hpa
+Metrics:  {{ if .Values.monitoring.enabled }}ServiceMonitor {{ include "ledger.backend.fullname" . }} -> Prometheus scrapes /metrics every {{ .Values.monitoring.serviceMonitor.interval }}{{ else }}ServiceMonitor disabled (monitoring.enabled=false){{ end }}
+Data:     PVC data-{{ include "ledger.postgres.fullname" . }}-0 survives pod restarts AND helm uninstall; delete it by hand if you really want the data gone.
+
+New image: helm upgrade {{ .Release.Name }} <chart> -n {{ .Release.Namespace }} --reuse-values --set backend.image.tag=<sha> --set frontend.image.tag=<sha>
+Rollback:  helm rollback {{ .Release.Name }} <revision> -n {{ .Release.Namespace }}

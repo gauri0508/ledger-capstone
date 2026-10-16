@@ -1,0 +1,13 @@
+# Non-secret settings. The backend reads them with envFrom; a checksum of this
+# file is annotated on the Deployment so changing a value rolls the pods.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ledger.configmap.name" . }}
+  labels:
+    {{- include "ledger.labels" (dict "root" . "component" "backend") | nindent 4 }}
+data:
+  APP_NAME: {{ .Values.config.appName | quote }}
+  APP_VERSION: {{ default .Chart.AppVersion .Values.backend.image.tag | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  CORS_ORIGINS: {{ .Values.config.corsOrigins | quote }}

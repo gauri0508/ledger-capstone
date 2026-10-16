@@ -1,0 +1,33 @@
+# Dev: the Minikube cluster. Images come from the minikube registry addon,
+# everything is small, DEBUG logs, open CORS, hostname ledger.local.
+image:
+  registry: localhost:5000
+
+config:
+  logLevel: DEBUG
+  corsOrigins: "*"
+
+postgres:
+  auth:
+    username: ledger
+    password: ledger-dev-password
+    database: ledger
+  persistence:
+    size: 1Gi
+
+backend:
+  replicaCount: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 60
+
+frontend:
+  replicaCount: 2
+
+ingress:
+  host: ledger.local
+
+monitoring:
+  enabled: true

@@ -1,0 +1,59 @@
+# Prod: a real registry, more replicas, bigger disk, locked-down CORS, TLS.
+# Secrets here are placeholders - a prod install would supply them from a
+# secret manager (see README), never commit them.
+image:
+  registry: ghcr.io/gauri0508
+  pullPolicy: IfNotPresent
+
+config:
+  logLevel: INFO
+  corsOrigins: "https://ledger.example.com"
+
+postgres:
+  auth:
+    username: ledger
+    password: CHANGE-ME-FROM-A-SECRET-MANAGER
+    database: ledger
+  persistence:
+    size: 10Gi
+    storageClassName: ""
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+backend:
+  replicaCount: 3
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 60
+
+frontend:
+  replicaCount: 3
+
+ingress:
+  host: ledger.example.com
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  tls:
+    - secretName: ledger-tls
+      hosts:
+        - ledger.example.com
+
+monitoring:
+  enabled: true
+  serviceMonitor:
+    interval: 30s

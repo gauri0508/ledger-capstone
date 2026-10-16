@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.frontend.service.name }}
+  labels:
+    {{- include "ledger.labels" (dict "root" . "component" "frontend") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "ledger.selectorLabels" (dict "root" . "component" "frontend") | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.frontend.service.port }}
+      targetPort: http
+      protocol: TCP

@@ -1,0 +1,18 @@
+# The one thing Helm does not own: the namespace the release lives in.
+# Apply this first, then `helm upgrade --install ... -n ledger`.
+#
+# Pod Security Admission labels: pods that break the "restricted" profile are
+# rejected outright; "warn"/"audit" at the same level surface anything the
+# chart gets wrong in the kubectl output instead of silently allowing it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ledger
+  labels:
+    app.kubernetes.io/name: ledger
+    app.kubernetes.io/part-of: ledger
+    environment: dev
+    owner: gauri-shukla
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted

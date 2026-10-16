@@ -1,0 +1,26 @@
+{{- if .Values.monitoring.enabled }}
+# Tells the Prometheus Operator to scrape every endpoint behind the backend
+# Service on its "http" port at /metrics. Toggle off on clusters without the
+# monitoring.coreos.com CRDs or the install fails on an unknown kind.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "ledger.backend.fullname" . }}
+  labels:
+    {{- include "ledger.labels" (dict "root" . "component" "backend") | nindent 4 }}
+    {{- with .Values.monitoring.serviceMonitor.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "ledger.selectorLabels" (dict "root" . "component" "backend") | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.monitoring.serviceMonitor.interval }}
+      scrapeTimeout: {{ .Values.monitoring.serviceMonitor.scrapeTimeout }}
+{{- end }}

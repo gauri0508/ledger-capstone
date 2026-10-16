@@ -1,0 +1,18 @@
+# Headless: no virtual IP, DNS resolves straight to the StatefulSet pod, and
+# the pod also gets the stable name <pod>.postgres.<ns>.svc.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.postgres.service.name }}
+  labels:
+    {{- include "ledger.labels" (dict "root" . "component" "postgres") | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    {{- include "ledger.selectorLabels" (dict "root" . "component" "postgres") | nindent 4 }}
+  ports:
+    - name: postgres
+      port: {{ .Values.postgres.service.port }}
+      targetPort: postgres
+      protocol: TCP

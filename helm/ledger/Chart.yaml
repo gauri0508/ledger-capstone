@@ -1,0 +1,16 @@
+apiVersion: v2
+name: ledger
+description: Ledger expense tracker - FastAPI backend, Postgres, React/nginx frontend
+type: application
+# Chart version: bump when the templates change.
+version: 0.1.0
+# App version: the fallback image tag when backend.image.tag / frontend.image.tag are empty.
+appVersion: "1.0.0"
+keywords:
+  - fastapi
+  - postgres
+  - react
+  - expense-tracker
+maintainers:
+  - name: Gauri Shukla
+home: https://github.com/gauri0508/ledger-capstone
