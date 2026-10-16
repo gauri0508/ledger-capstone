@@ -2,3 +2,5 @@ line-length = 120
 target-version = "py312"
 [lint]
 select = ["E", "F", "I", "B", "UP"]
+# B008 flags `db: Session = Depends(get_db)`; that is the documented FastAPI dependency-injection idiom.
+ignore = ["B008"]
