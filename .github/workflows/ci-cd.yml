@@ -87,17 +87,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # --pull --no-cache: always start from the current base image and really run the
+      # `apk upgrade` / `pip install` layers. A cached layer from an older build once hid a
+      # fixable libtiff CVE in the nginx image (see README, Security section).
       - name: Build backend image
-        run: docker build -t "${{ steps.img.outputs.backend }}" ./backend
+        run: docker build --pull --no-cache -t "${{ steps.img.outputs.backend }}" ./backend
       - name: Build frontend image
-        run: docker build -t "${{ steps.img.outputs.frontend }}" ./frontend
+        run: docker build --pull --no-cache -t "${{ steps.img.outputs.frontend }}" ./frontend
       - name: Show the images
         run: docker image ls --format 'table {{.Repository}}\t{{.Tag}}\t{{.Size}}' | grep -E "REPOSITORY|ledger-"
 
       # Security gate: any HIGH/CRITICAL CVE that already has a fix fails the job,
       # so a vulnerable image is never pushed or deployed.
       - name: Trivy scan - backend image
-        uses: aquasecurity/trivy-action@0.30.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ steps.img.outputs.backend }}
           severity: HIGH,CRITICAL
@@ -105,7 +108,7 @@ jobs:
           exit-code: "1"
           format: table
       - name: Trivy scan - frontend image
-        uses: aquasecurity/trivy-action@0.30.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ steps.img.outputs.frontend }}
           severity: HIGH,CRITICAL
