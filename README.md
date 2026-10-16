@@ -339,7 +339,13 @@ installed from `monitoring/prometheus-values.yaml` (`serviceMonitorSelectorNilUs
 picks up ServiceMonitors from any namespace). The chart's ServiceMonitor selects the backend Service;
 Prometheus discovers every backend pod behind it.
 
-The raw endpoint, the ServiceMonitor spec and the Prometheus targets API — both backend pods `up`:
+What the endpoint looks like after the Compose session's requests (one counter per handler, method and
+status, plus the latency histograms):
+
+![/metrics on the Compose stack](docs/screenshots/metrics-endpoint-terminal.png)
+
+In the cluster: the raw endpoint through the Ingress, the ServiceMonitor spec and the Prometheus targets
+API — both backend pods `up`:
 
 ![/metrics and targets](docs/screenshots/metrics-servicemonitor-targets-terminal.png)
 
