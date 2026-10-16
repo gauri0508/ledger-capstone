@@ -20,3 +20,4 @@ crash.log
 .actrc.local
 .secrets
 .DS_Store
+.ruff_cache/
