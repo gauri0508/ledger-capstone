@@ -125,7 +125,9 @@ jobs:
   # ---------------------------------------------------------------- 3. DEPLOY
   deploy:
     name: Deploy with Helm
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    # Runs on main when the repository variable DEPLOY_ENABLED is "true" (a GitHub-hosted runner must be
+    # able to reach the cluster in KUBE_CONFIG_DATA - true for EKS, not for a laptop Minikube).
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.DEPLOY_ENABLED == 'true'
     needs: build-scan-push
     runs-on: ubuntu-latest
     permissions:

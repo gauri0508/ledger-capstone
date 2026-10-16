@@ -203,9 +203,13 @@ The registry after the run — two repositories, one tag each, and the tag equal
 
 ![Registry contents](docs/screenshots/registry-images-sha-tags-terminal.png)
 
-**Secrets the deploy job needs on GitHub:** `KUBE_CONFIG_DATA` (base64 of a kubeconfig for the target
-cluster) and `POSTGRES_PASSWORD`. `GITHUB_TOKEN` is provided automatically for the GHCR login. Nothing
-is hard-coded in the workflow.
+**Secrets and variables on GitHub:** `KUBE_CONFIG_DATA` (base64 of a kubeconfig for the target cluster)
+and `POSTGRES_PASSWORD` are repository secrets; `GITHUB_TOKEN` is provided automatically for the GHCR
+login. The deploy job additionally requires the repository variable `DEPLOY_ENABLED=true`, because a
+GitHub-hosted runner can only deploy to a cluster it can reach (EKS yes, my laptop's Minikube no). With
+the variable unset, pushes to GitHub run test + build-scan-push and publish to GHCR; the deploy job is
+skipped and was exercised locally with `act` against Minikube instead. Nothing is hard-coded in the
+workflow.
 
 ---
 

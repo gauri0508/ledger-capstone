@@ -5,3 +5,4 @@
 --artifact-server-path /tmp/act-artifacts
 --var REGISTRY=localhost:5000
 --var IMAGE_NAMESPACE=ledger
+--var DEPLOY_ENABLED=true
