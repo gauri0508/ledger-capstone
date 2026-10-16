@@ -1,0 +1,14 @@
+# Deliberately broken: the selector matches no pod label, so the Service has no endpoints.
+# Expected symptom: `kubectl get endpoints` shows <none>, every request to it fails.
+# Fix: selector must equal the backend pods' labels (app.kubernetes.io/component: backend ...).
+apiVersion: v1
+kind: Service
+metadata:
+  name: ledger-broken-service
+  namespace: ledger
+spec:
+  selector:
+    app: label-that-does-not-exist
+  ports:
+    - port: 8000
+      targetPort: 8000

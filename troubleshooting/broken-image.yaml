@@ -1,0 +1,24 @@
+# Deliberately broken: the image tag was never built or pushed.
+# Expected symptom: ErrImagePull -> ImagePullBackOff. Fix: point at a tag that exists.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ledger-broken-image
+  namespace: ledger
+  labels: {app: ledger-broken-image}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: ledger-broken-image}
+  template:
+    metadata:
+      labels: {app: ledger-broken-image}
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: backend
+          image: localhost:5000/ledger/ledger-backend:does-not-exist
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}
+          env:
+            - {name: DATABASE_URL, valueFrom: {secretKeyRef: {name: ledger-secret, key: DATABASE_URL}}}
+          ports: [{containerPort: 8000}]
