@@ -17,6 +17,7 @@ USER 101
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /src/dist /usr/share/nginx/html
 # The base image already sets USER 101 and listens on 8080.
+# 127.0.0.1, not localhost: inside alpine "localhost" resolves to ::1 first and nginx listens on IPv4.
 EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget -qO- http://localhost:8080/ >/dev/null || exit 1
+  CMD wget -qO- http://127.0.0.1:8080/ >/dev/null || exit 1
