@@ -157,7 +157,7 @@ export default function App() {
       <header>
         <div>
           <h1>Ledger</h1>
-          <p className="tagline">a small personal expense tracker</p>
+          <p className="tagline">know where the money goes</p>
         </div>
         {version && <span className="version">api v{version}</span>}
       </header>

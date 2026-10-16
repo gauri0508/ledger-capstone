@@ -5,7 +5,7 @@ type: application
 # Chart version: bump when the templates change.
 version: 0.1.0
 # App version: the fallback image tag when backend.image.tag / frontend.image.tag are empty.
-appVersion: "1.0.0"
+appVersion: "1.1.0"
 keywords:
   - fastapi
   - postgres
