@@ -3,6 +3,8 @@
 **Name:** Gauri Shukla
 **Enrollment No.:** `24BCS10115`
 **Session:** 21 — Final DevOps Project & Troubleshooting
+**Repository:** https://github.com/gauri0508/ledger-capstone
+**Pipeline run:** https://github.com/gauri0508/ledger-capstone/actions/runs/38895206289
 
 Ledger is a small personal expense tracker: you add what you spent (amount, category, date, note),
 filter by category, and the dashboard shows this month's total, the all-time total and the top
@@ -54,11 +56,13 @@ ledger-capstone/
 
 ## Two things to know before reading the evidence
 
-- **The pipeline was executed locally with [`act`](https://github.com/nektos/act)** because this repository
-  had not been pushed to GitHub when the evidence was collected. `act` runs the *identical* workflow
-  file in Docker. The only difference is where the images land: on GitHub the push step logs in to
-  `ghcr.io` and pushes there; locally the same step pushed to the Minikube registry addon
-  (`--var REGISTRY=localhost:5000`, see `.actrc`). Nothing in the YAML changes.
+- **The pipeline ran twice over: on GitHub and locally.** On GitHub (run linked above) the `test` and
+  `build-scan-push` jobs ran on a hosted runner and pushed the SHA-tagged images to **GHCR**. The `deploy`
+  job is gated on a repository variable (`DEPLOY_ENABLED`) because a GitHub-hosted runner cannot reach the
+  Minikube cluster on my laptop, so it shows as *skipped* there. To prove the deploy job too, the
+  *identical* workflow file was executed locally with [`act`](https://github.com/nektos/act) against
+  Minikube (`.actrc`: `--var REGISTRY=localhost:5000 --var DEPLOY_ENABLED=true`), where all three jobs
+  ran green. Both sets of logs are below.
 - **Terraform ran against [LocalStack](https://localstack.cloud)**, not a real AWS account (I don't have one
   on this machine). LocalStack's free edition emulates EC2 and IAM but not EKS, so the VPC/subnet/NAT/IAM
   layer was applied for real and the EKS layer is validated with `terraform plan`. The HCL is unchanged
@@ -144,9 +148,13 @@ ruff check app tests && pytest -v
 
 # 3. Git and GitHub
 
-The project was built as a series of small, meaningful commits (one concern each: backend, tests,
-Dockerfile, frontend, chart, pipeline, …). `.gitignore` excludes `.env`, `__pycache__`, `.venv`,
-`node_modules`, `dist`, Terraform state and plans, and tool caches.
+Public repository: **https://github.com/gauri0508/ledger-capstone**. The project was built as a series
+of small, meaningful commits (one concern each: backend, tests, Dockerfile, frontend, chart, pipeline,
+…). `.gitignore` excludes `.env`, `__pycache__`, `.venv`, `node_modules`, `dist`, Terraform state and
+plans, and tool caches. No credentials are committed anywhere (the Terraform example file has none, the
+pipeline reads everything from repository secrets).
+
+![GitHub commit history](docs/screenshots/github-commit-history-browser.png)
 
 ![git log](docs/screenshots/git-log-terminal.png)
 
@@ -187,6 +195,30 @@ test  ──►  build-scan-push  ──►  deploy
 The image tag is the commit SHA, never only `latest`, so every running pod can be traced back to the
 exact commit that produced it (`kubectl get pods -o jsonpath=...image` in section 8 shows it).
 
+## The run on GitHub
+
+Push to `main` → run [#1](https://github.com/gauri0508/ledger-capstone/actions/runs/38895206289): `test`
+26 s, `build-scan-push` 1 m 45 s, both green; `deploy` skipped (gated, see above); two artifacts
+(`pytest-report`, `frontend-dist`).
+
+![GitHub Actions run](docs/screenshots/github-actions-run-browser.png)
+
+The test job's log on the hosted runner (`gh run view --log`):
+
+![GitHub test job log](docs/screenshots/github-actions-job-test-log-terminal.png)
+
+The build job's log: images built and tagged `ghcr.io/gauri0508/ledger-<name>:<sha>`, both Trivy scans
+clean, both pushed to GHCR with the SHA tag:
+
+![GitHub build job log](docs/screenshots/github-actions-job-build-scan-push-log-terminal.png)
+
+GHCR after the run — the two packages queried through the registry's own API, each with exactly one
+tag equal to the commit SHA, and the backend image pulled back from GHCR by that tag:
+
+![GHCR packages](docs/screenshots/ghcr-packages-sha-tags-terminal.png)
+
+## The same workflow run locally with `act` (all three jobs, including deploy)
+
 Job 1 — tests, lint and the frontend build:
 
 ![CI job 1](docs/screenshots/ci-job1-test-terminal.png)
@@ -199,7 +231,8 @@ Job 3 — Helm deploy to the cluster and the smoke test:
 
 ![CI job 3](docs/screenshots/ci-job3-deploy-helm-terminal.png)
 
-The registry after the run — two repositories, one tag each, and the tag equals `git rev-parse HEAD`:
+The Minikube registry after the local run — two repositories, one tag each, and the tag equals
+`git rev-parse HEAD`:
 
 ![Registry contents](docs/screenshots/registry-images-sha-tags-terminal.png)
 
